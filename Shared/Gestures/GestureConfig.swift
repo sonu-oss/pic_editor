@@ -43,6 +43,12 @@ struct GestureConfig: Sendable, Equatable {
     var swipeCooldown = 0.5
     /// A pinch must be held this long before moving the hand changes the value.
     var pinchSettleDuration = 0.15
+    /// The pinch ends after this many frames in a row that aren't a pinch (before voting),
+    /// so the value stops following the hand as soon as the fingers open.
+    var pinchReleaseFrames = 2
+    /// On letting go, changes from this many seconds before the release are undone,
+    /// because the fingers drift while opening.
+    var pinchReleaseRollback = 0.1
     var dwellDuration = 0.8
     /// How far the pointing finger may wander (camera heights) and still count as holding still.
     var dwellRadius = 0.03

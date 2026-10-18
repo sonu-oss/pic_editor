@@ -22,6 +22,7 @@ struct GesturePipelineTests {
         var all: [HandFrame] = []
         all += frames(.openPalm, for: 1.0, from: here, to: here, time: &time)
         all += frames(.pinch, for: 0.5, from: here, to: raised, time: &time)
+        all += frames(.pinch, for: 0.2, from: raised, to: raised, time: &time)
         all += frames(.openPalm, for: 0.3, from: raised, to: raised, time: &time)
         all += frames(.peace, for: 0.4, from: raised, to: raised, time: &time)
         all += frames(.fist, for: 0.3, from: raised, to: raised, time: &time)

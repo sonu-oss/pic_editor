@@ -40,4 +40,5 @@ _Last updated: 18 Oct 2026_
 - New files under `Shared/`, `macOS/` and `Tests/` are picked up by Xcode automatically. Don't edit `project.pbxproj`.
 - Hand tracking runs on the camera's video queue, and late frames are dropped there. Hand frames reach the `@MainActor` `AppModel` through an `AsyncStream` that keeps only the newest frame. The gesture pipeline currently runs on the main actor (cheap); move it to an actor only if profiling says so.
 - The gesture classifier stretches x by 16/9 (`GestureConfig.aspectRatio`) so distances are real proportions.
+- A pinch ends as soon as the unvoted pose stops being a pinch for `pinchReleaseFrames` frames, and the last `pinchReleaseRollback` seconds of change are undone, so opening the fingers or starting a swipe doesn't move the value.
 - Point and peace ignore the thumb. A pinch requires the index finger to reach out, so a fist isn't read as a pinch.

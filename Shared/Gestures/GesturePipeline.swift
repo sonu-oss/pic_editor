@@ -28,7 +28,7 @@ struct GesturePipeline: Sendable {
             rawPose = .none
         }
         let pose = stabilizer.add(rawPose)
-        return stateMachine.consume(GestureInput(timestamp: frame.timestamp, pose: pose, hand: hand))
+        return stateMachine.consume(GestureInput(timestamp: frame.timestamp, pose: pose, hand: hand, rawPose: rawPose))
     }
 
     private func handSize(_ hand: Hand) -> Double {

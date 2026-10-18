@@ -9,7 +9,7 @@ private struct Driver {
     let frameDuration = 1.0 / 30
 
     @discardableResult
-    mutating func run(_ pose: HandPose, for duration: Double, to end: Vector2? = nil, handVisible: Bool = true) -> [EditCommand] {
+    mutating func run(_ pose: HandPose, for duration: Double, to end: Vector2? = nil, handVisible: Bool = true, raw: HandPose? = nil) -> [EditCommand] {
         let start = position
         let target = end ?? position
         let steps = max(Int((duration / frameDuration).rounded()), 1)
@@ -19,7 +19,7 @@ private struct Driver {
             let fraction = Double(step) / Double(steps)
             position = Vector2(x: start.x + (target.x - start.x) * fraction, y: start.y + (target.y - start.y) * fraction)
             let hand = handVisible ? HandFixtures.marker(at: position) : nil
-            commands += machine.consume(GestureInput(timestamp: time, pose: pose, hand: hand))
+            commands += machine.consume(GestureInput(timestamp: time, pose: pose, hand: hand, rawPose: raw))
         }
         return commands
     }
@@ -120,6 +120,36 @@ struct GestureStateMachineTests {
         let result8 = driver.run(.openPalm, for: 0.1)
         #expect(result8 == [.endAdjust])
         #expect(driver.machine.state == .armed)
+    }
+
+    @Test func openingTheFingersStopsChangesBeforeTheVoteCatchesUp() {
+        var driver = Driver()
+        driver.arm()
+        driver.run(.pinch, for: 0.3)
+        // The voted pose still says pinch, but the camera already sees an open hand moving away.
+        let commands = driver.run(.pinch, for: 0.1, to: Vector2(x: 0.5, y: 0.1), raw: .openPalm)
+        #expect(adjustments(commands).isEmpty)
+        #expect(commands.contains(.endAdjust))
+        #expect(!commands.contains(.beginAdjust))
+        #expect(driver.machine.state == .armed)
+
+        // A new pinch can start once the voted pose has left pinch.
+        driver.run(.openPalm, for: 0.1)
+        let again = driver.run(.pinch, for: 0.1)
+        #expect(again == [.beginAdjust])
+    }
+
+    @Test func releaseTakesBackTheLastMomentsDrift() {
+        var driver = Driver()
+        driver.arm()
+        driver.run(.pinch, for: 0.3)
+        let moved = adjustments(driver.run(.pinch, for: 0.5, to: Vector2(x: 0.5, y: 0.3)))
+        let release = adjustments(driver.run(.openPalm, for: 0.1))
+        #expect(release.count == 1)
+        let total = (moved + release).reduce(0, +)
+        // Most of the change stays; only the last 0.1 s or so is undone.
+        #expect(release[0] < 0)
+        #expect(total > 0.1)
     }
 
     @Test func fistCancelsWithoutDisarming() {
