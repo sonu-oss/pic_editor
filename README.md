@@ -4,7 +4,7 @@
 
 GestureEdit is a macOS photo editor you control with hand gestures through the Mac's built-in camera. Raise an open palm to start, pinch and move your hand to adjust exposure or contrast, swipe to switch tools, make a peace sign to undo and give a thumbs-up to export. Everything runs on your Mac. No images or camera frames ever leave it.
 
-Built by **sohan** with Claude, starting from a product requirements document ([PRD.md](PRD.md)) and no prior Swift experience.
+Built by **sohan** with Claude, starting from a product requirements document ([PRD.md](PRD.md)).
 
 ## What it does
 
