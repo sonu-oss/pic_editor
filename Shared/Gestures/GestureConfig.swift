@@ -12,7 +12,9 @@ struct GestureConfig: Sendable, Equatable {
     /// A hand with fewer confident joints than this counts as no pose.
     var minimumConfidentJoints = 15
     /// A finger is extended when wrist→tip is longer than this × wrist→middle knuckle (PIP).
-    var fingerExtendedRatio = 1.3
+    /// The PRD's 1.3 was too strict on real hands: a straight finger only reaches about 1.3–1.35,
+    /// so an open palm often read as "no pose". A curled finger is below about 0.8.
+    var fingerExtendedRatio = 1.1
     /// The thumb is extended when thumb tip→index base is longer than this × hand size.
     var thumbExtendedRatio = 0.6
     /// Pinch starts when thumb tip→index tip is below this × hand size…
