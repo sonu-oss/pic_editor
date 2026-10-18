@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Small developer panel: tracking speed and on/off switches for testing.
 struct DebugHUDView: View {
@@ -11,10 +12,17 @@ struct DebugHUDView: View {
                 .monospacedDigit()
             Text("Hands: \(model.hands.count)")
             Text("Camera: \(model.cameraState.label)")
+            Text("Raw pose: \(model.rawPose.emoji) \(model.rawPose.displayName)")
+            Text("Last action: \(model.lastAction)")
             Divider()
             Toggle("Skeleton", isOn: $model.showSkeleton)
             Toggle("Smoothing", isOn: $model.smoothingEnabled)
             Toggle("Camera preview", isOn: $model.showCameraPreview)
+            Divider()
+            Button(model.isRecording ? "Stop and save recording…" : "Record gestures") {
+                model.toggleRecording()
+            }
+            .tint(model.isRecording ? .red : nil)
         }
         .font(.callout)
         .toggleStyle(.switch)
@@ -22,5 +30,13 @@ struct DebugHUDView: View {
         .padding(12)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
         .fixedSize()
+        .fileExporter(
+            isPresented: $model.isSavingRecording,
+            document: model.recordingDocument,
+            contentType: .json,
+            defaultFilename: "gesture-session"
+        ) { _ in
+            model.recordingDocument = nil
+        }
     }
 }

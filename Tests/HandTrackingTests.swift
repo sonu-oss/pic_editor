@@ -100,4 +100,30 @@ struct AppModelTests {
         model.isWindowMinimized = true
         #expect(!model.cameraShouldRun)
     }
+
+    @Test func swipeCommandsChangeTheTool() {
+        let model = AppModel()
+        model.apply(.nextTool)
+        #expect(model.activeTool == .brightness)
+        model.apply(.previousTool)
+        model.apply(.previousTool)
+        #expect(model.activeTool == .sharpness)
+    }
+
+    @Test func cancelRestoresTheValue() {
+        let model = AppModel()
+        model.apply(.beginAdjust)
+        model.apply(.adjust(delta: 0.25))
+        #expect(model.value(of: .exposure) == 1)
+        model.apply(.cancelAdjust)
+        #expect(model.value(of: .exposure) == 0)
+    }
+
+    @Test func valuesStayInRange() {
+        let model = AppModel()
+        model.apply(.beginAdjust)
+        model.apply(.adjust(delta: 5))
+        model.apply(.endAdjust)
+        #expect(model.value(of: .exposure) == 2)
+    }
 }

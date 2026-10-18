@@ -16,6 +16,7 @@ struct CameraPiPView: View {
                 if model.showSkeleton {
                     HandSkeletonOverlay(hands: model.hands)
                 }
+                ArmingRingOverlay(hand: model.trackedHand, progress: model.armProgress)
             }
             .frame(width: width, height: width * 9 / 16)
             .clipShape(RoundedRectangle(cornerRadius: 12))
