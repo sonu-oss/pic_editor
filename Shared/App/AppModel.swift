@@ -27,6 +27,23 @@ final class AppModel {
     var hands: [Hand] = []
     var trackingFPS = 0.0
 
+    // Gestures (Phase 3)
+    var gestureState: GestureState = .idle
+    var pose: HandPose = .none
+    var rawPose: HandPose = .none
+    var armProgress = 0.0
+    var trackedHand: Hand?
+    var lastAction = "None yet"
+
+    // Tool values. Phase 4 replaces these with EditState and a real photo.
+    var activeTool: Tool = .exposure
+    var toolValues: [Tool: Double] = Dictionary(uniqueKeysWithValues: Tool.allCases.map { ($0, $0.defaultValue) })
+
+    // Gesture recording (record/replay for tests)
+    var isRecording = false
+    var isSavingRecording = false
+    var recordingDocument: HandSessionDocument?
+
     // Debug switches (move to a Settings window in Phase 5)
     var showSkeleton = true
     var smoothingEnabled = true
@@ -41,6 +58,9 @@ final class AppModel {
     private let handFrames: AsyncStream<HandFrame>
     @ObservationIgnored private var smoother = HandSmoother()
     @ObservationIgnored private var fpsCounter = FPSCounter()
+    @ObservationIgnored private var gestures = GesturePipeline()
+    @ObservationIgnored private var valueBeforeAdjust: Double?
+    @ObservationIgnored private var recordedFrames: [HandFrame] = []
 
     init() {
         // Keep only the newest frame if the UI falls behind.
@@ -68,11 +88,86 @@ final class AppModel {
 
     func receive(_ frame: HandFrame) {
         trackingFPS = fpsCounter.record(frame.timestamp)
+        let shown: HandFrame
         if smoothingEnabled {
-            hands = smoother.smooth(frame).hands
+            shown = smoother.smooth(frame)
         } else {
             smoother.reset()
-            hands = frame.hands
+            shown = frame
+        }
+        hands = shown.hands
+        if isRecording {
+            recordedFrames.append(shown)
+        }
+
+        let commands = gestures.process(shown)
+        gestureState = gestures.stateMachine.state
+        pose = gestures.stablePose
+        rawPose = gestures.rawPose
+        armProgress = gestures.stateMachine.armProgress
+        trackedHand = gestures.trackedHand
+        for command in commands {
+            apply(command)
+        }
+    }
+
+    func value(of tool: Tool) -> Double {
+        toolValues[tool] ?? tool.defaultValue
+    }
+
+    /// Carries out one command. For now most only show up as "last action"; Phase 4 makes them edit the photo.
+    func apply(_ command: EditCommand) {
+        switch command {
+        case .arm:
+            lastAction = "Armed"
+        case .disarm:
+            lastAction = "Disarmed"
+        case .beginAdjust:
+            valueBeforeAdjust = value(of: activeTool)
+            lastAction = "Adjusting \(activeTool.displayName)"
+        case .adjust(let delta):
+            toolValues[activeTool] = activeTool.clamped(value(of: activeTool) + delta * activeTool.span)
+        case .endAdjust:
+            valueBeforeAdjust = nil
+            lastAction = "Set \(activeTool.displayName)"
+        case .cancelAdjust:
+            if let original = valueBeforeAdjust {
+                toolValues[activeTool] = original
+            }
+            valueBeforeAdjust = nil
+            lastAction = "Cancelled"
+        case .nextTool:
+            activeTool = activeTool.next
+            lastAction = "Next tool"
+        case .previousTool:
+            activeTool = activeTool.previous
+            lastAction = "Previous tool"
+        case .cursor:
+            break
+        case .click:
+            lastAction = "Click"
+        case .undo:
+            lastAction = "Undo"
+        case .redo:
+            lastAction = "Redo"
+        case .export:
+            lastAction = "Export"
+        case .zoom:
+            break
+        }
+    }
+
+    // MARK: - Recording
+
+    func toggleRecording() {
+        if isRecording {
+            isRecording = false
+            recordingDocument = HandSessionDocument(session: HandSession(frames: recordedFrames))
+            recordedFrames = []
+            isSavingRecording = true
+        } else {
+            recordedFrames = []
+            isRecording = true
         }
     }
 
@@ -86,6 +181,12 @@ final class AppModel {
             hands = []
             trackingFPS = 0
             fpsCounter.reset()
+            gestures = GesturePipeline()
+            gestureState = .idle
+            pose = .none
+            rawPose = .none
+            armProgress = 0
+            trackedHand = nil
             return
         }
 

@@ -12,6 +12,10 @@ struct ContentView: View {
             CameraPiPView()
                 .padding(16)
         }
+        .overlay(alignment: .top) {
+            StatusPillView()
+                .padding(.top, 12)
+        }
         .overlay(alignment: .topLeading) {
             DebugHUDView()
                 .padding(12)
@@ -38,7 +42,7 @@ struct ContentView: View {
                     .foregroundStyle(.tint)
                 Text("GestureEdit")
                     .font(.largeTitle.bold())
-                Text("Hold a hand up to the camera. Photo editing arrives in a later step.")
+                Text("Hold an open palm still to arm, then try pinch, point, peace, thumbs up and fist.")
                     .foregroundStyle(.secondary)
             }
             .padding(40)
