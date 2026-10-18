@@ -84,4 +84,10 @@ Swift 6, SwiftUI, AVFoundation, Vision, Core Image and Swift Testing. It uses Ap
 | 3 | Gesture recognition | ✅ |
 | 4 | Photo editing, presets, undo, export | ✅ |
 
-Ideas for later (gesture zoom, onboarding, a custom ML gesture model) are in [NEXT_STEPS.md](NEXT_STEPS.md).
+- [x] Phase 0: project setup
+- [x] Phase 1: camera preview
+- [x] Phase 2: hand tracking
+- [x] Phase 3: rule-based gestures
+- [x] Phase 4: editing with gestures
+- [ ] Phase 5: polish
+- [ ] Phase 6: custom ML classifier
