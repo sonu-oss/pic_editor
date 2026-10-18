@@ -43,7 +43,7 @@ See [NEXT_STEPS.md](NEXT_STEPS.md) for where things stand and how to continue.
 - [x] Phase 0: project setup
 - [x] Phase 1: camera preview
 - [x] Phase 2: hand tracking
-- [x] Phase 3: rule-based gestures (needs testing on the Mac)
-- [ ] Phase 4: editing with gestures
+- [x] Phase 3: rule-based gestures
+- [x] Phase 4: editing with gestures (needs testing on the Mac)
 - [ ] Phase 5: polish
 - [ ] Phase 6: custom ML classifier

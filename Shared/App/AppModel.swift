@@ -36,9 +36,17 @@ final class AppModel {
     var trackedHand: Hand?
     var lastAction = "None yet"
 
-    // Tool values. Phase 4 replaces these with EditState and a real photo.
+    // Photo editing (Phase 4)
     var activeTool: Tool = .exposure
-    var toolValues: [Tool: Double] = Dictionary(uniqueKeysWithValues: Tool.allCases.map { ($0, $0.defaultValue) })
+    var editState = EditState()
+    var history = EditHistory()
+    var photoName: String?
+    var previewImage: RenderedImage?
+    var zoomScale = 1.0
+    var isImporting = false
+    var isExportingPhoto = false
+    var exportDocument: ImageDocument?
+    var hasPhoto: Bool { photoName != nil }
 
     // Gesture recording (record/replay for tests)
     var isRecording = false
@@ -61,7 +69,10 @@ final class AppModel {
     @ObservationIgnored private var fpsCounter = FPSCounter()
     @ObservationIgnored private var gestures = GesturePipeline()
     @ObservationIgnored private let diagnosticsClassifier = RuleBasedClassifier()
-    @ObservationIgnored private var valueBeforeAdjust: Double?
+    @ObservationIgnored private var stateBeforeAdjust: EditState?
+    @ObservationIgnored private let renderer = RenderPipeline()
+    @ObservationIgnored private var renderTask: Task<Void, Never>?
+    @ObservationIgnored private var renderPending = false
     @ObservationIgnored private var recordedFrames: [HandFrame] = []
 
     init() {
@@ -116,10 +127,10 @@ final class AppModel {
     }
 
     func value(of tool: Tool) -> Double {
-        toolValues[tool] ?? tool.defaultValue
+        editState[tool]
     }
 
-    /// Carries out one command. For now most only show up as "last action"; Phase 4 makes them edit the photo.
+    /// Carries out one command, from a gesture or the keyboard.
     func apply(_ command: EditCommand) {
         switch command {
         case .arm:
@@ -127,18 +138,24 @@ final class AppModel {
         case .disarm:
             lastAction = "Disarmed"
         case .beginAdjust:
-            valueBeforeAdjust = value(of: activeTool)
+            stateBeforeAdjust = editState
             lastAction = "Adjusting \(activeTool.displayName)"
         case .adjust(let delta):
-            toolValues[activeTool] = activeTool.clamped(value(of: activeTool) + delta * activeTool.span)
+            editState[activeTool] = value(of: activeTool) + delta * activeTool.span
+            requestRender()
         case .endAdjust:
-            valueBeforeAdjust = nil
+            // HI-2: one pinch is one undo step.
+            if let before = stateBeforeAdjust, before != editState {
+                history.record(before)
+            }
+            stateBeforeAdjust = nil
             lastAction = "Set \(activeTool.displayName)"
         case .cancelAdjust:
-            if let original = valueBeforeAdjust {
-                toolValues[activeTool] = original
+            if let before = stateBeforeAdjust {
+                editState = before
+                requestRender()
             }
-            valueBeforeAdjust = nil
+            stateBeforeAdjust = nil
             lastAction = "Cancelled"
         case .nextTool:
             activeTool = activeTool.next
@@ -151,14 +168,104 @@ final class AppModel {
         case .click:
             lastAction = "Click"
         case .undo:
-            lastAction = "Undo"
+            if let previous = history.undo(from: editState) {
+                editState = previous
+                requestRender()
+                lastAction = "Undo"
+            } else {
+                lastAction = "Nothing to undo"
+            }
         case .redo:
-            lastAction = "Redo"
+            if let next = history.redo(from: editState) {
+                editState = next
+                requestRender()
+                lastAction = "Redo"
+            } else {
+                lastAction = "Nothing to redo"
+            }
         case .export:
-            lastAction = "Export"
-        case .zoom:
-            break
+            startExport()
+        case .zoom(let factor):
+            zoomScale = min(max(zoomScale * factor, 1), 8)
         }
+    }
+
+    /// HI-3: applying a preset is one undo step.
+    func applyPreset(_ preset: Preset) {
+        guard preset != editState.preset else { return }
+        let before = editState
+        editState.preset = preset
+        history.record(before)
+        requestRender()
+        lastAction = "Preset: \(preset.displayName)"
+    }
+
+    // MARK: - Photo
+
+    /// IO-1: opens a JPEG, PNG or HEIC and starts a fresh edit.
+    func openPhoto(_ url: URL) async {
+        let hasAccess = url.startAccessingSecurityScopedResource()
+        defer {
+            if hasAccess { url.stopAccessingSecurityScopedResource() }
+        }
+        do {
+            _ = try await renderer.load(url)
+            photoName = url.deletingPathExtension().lastPathComponent
+            editState = EditState()
+            history = EditHistory()
+            zoomScale = 1
+            previewImage = nil
+            requestRender()
+            lastAction = "Opened \(url.lastPathComponent)"
+        } catch {
+            lastAction = error.localizedDescription
+        }
+    }
+
+    /// ED-5: renders off the main thread; while one render runs, only the newest state waits.
+    func requestRender() {
+        guard hasPhoto else { return }
+        if renderTask != nil {
+            renderPending = true
+            return
+        }
+        renderTask = Task {
+            await self.renderLoop()
+        }
+    }
+
+    private func renderLoop() async {
+        repeat {
+            renderPending = false
+            if let image = await renderer.renderPreview(editState) {
+                previewImage = image
+            }
+        } while renderPending
+        renderTask = nil
+    }
+
+    /// IO-2/IO-3: renders full size, then asks where to save. The original is never touched.
+    func startExport() {
+        guard hasPhoto else {
+            lastAction = "Open a photo first"
+            return
+        }
+        lastAction = "Exporting…"
+        let state = editState
+        Task {
+            do {
+                let data = try await self.renderer.exportJPEG(state)
+                self.exportDocument = ImageDocument(data: data)
+                self.isExportingPhoto = true
+                self.lastAction = "Export ready"
+            } catch {
+                self.lastAction = error.localizedDescription
+            }
+        }
+    }
+
+    var exportFilename: String {
+        "\(photoName ?? "photo")-edited"
     }
 
     // MARK: - Recording

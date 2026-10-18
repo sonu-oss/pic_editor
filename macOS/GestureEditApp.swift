@@ -26,5 +26,30 @@ struct GestureEditApp: App {
                     model.isWindowMinimized = false
                 }
         }
+        .commands {
+            // US9: every action also works from the keyboard.
+            CommandGroup(replacing: .newItem) {
+                Button("Open Photo…") { model.isImporting = true }
+                    .keyboardShortcut("o")
+            }
+            CommandGroup(replacing: .saveItem) {
+                Button("Export…") { model.apply(.export) }
+                    .keyboardShortcut("s")
+            }
+            CommandGroup(replacing: .undoRedo) {
+                Button("Undo") { model.apply(.undo) }
+                    .keyboardShortcut("z")
+                Button("Redo") { model.apply(.redo) }
+                    .keyboardShortcut("z", modifiers: [.command, .shift])
+            }
+            CommandGroup(after: .toolbar) {
+                Button("Zoom In") { model.apply(.zoom(scale: 1.25)) }
+                    .keyboardShortcut("+")
+                Button("Zoom Out") { model.apply(.zoom(scale: 0.8)) }
+                    .keyboardShortcut("-")
+                Button("Actual Size") { model.zoomScale = 1 }
+                    .keyboardShortcut("0")
+            }
+        }
     }
 }

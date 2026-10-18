@@ -1,7 +1,7 @@
 import Foundation
 
 /// The adjustment tools, in swipe order (PRD Section 4).
-enum Tool: String, CaseIterable, Sendable, Codable {
+enum Tool: String, CaseIterable, Sendable, Codable, CodingKeyRepresentable {
     case exposure, brightness, contrast, saturation, warmth, highlights, shadows, vignette, sharpness
 
     var displayName: String {
@@ -25,7 +25,7 @@ enum Tool: String, CaseIterable, Sendable, Codable {
         case .brightness: -0.5...0.5
         case .contrast: 0.5...1.5
         case .saturation: 0...2
-        case .warmth: 2000...10000
+        case .warmth: 4000...9000
         case .highlights: 0...1
         case .shadows: -1...1
         case .vignette: 0...2
