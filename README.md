@@ -24,8 +24,8 @@ your Apple ID under **Team** (add it in Xcode → Settings → Accounts first).
 ## Progress
 
 - [x] Phase 0: project setup
-- [ ] Phase 1: camera preview
-- [ ] Phase 2: hand tracking
+- [x] Phase 1: camera preview (needs testing on the Mac)
+- [x] Phase 2: hand tracking (needs testing on the Mac)
 - [ ] Phase 3: rule-based gestures
 - [ ] Phase 4: editing with gestures
 - [ ] Phase 5: polish
