@@ -1,3 +1,5 @@
+import Foundation
+
 /// Names a hand pose with simple geometry rules (PRD Section 4, "Detection rules").
 struct RuleBasedClassifier: GestureClassifier {
     var config: GestureConfig
@@ -48,6 +50,43 @@ struct RuleBasedClassifier: GestureClassifier {
         default:
             return .none
         }
+    }
+
+    /// A one-line readout of the numbers behind the decision, for the debug panel.
+    /// Each finger shows its reach ratio (straight above `fingerExtendedRatio`), thumb its spread
+    /// (straight above `thumbExtendedRatio`), "?" when a joint is missing or too uncertain.
+    func diagnostics(for hand: Hand) -> String {
+        var points: [JointName: Vector2] = [:]
+        for (name, joint) in hand.joints where joint.confidence >= config.minimumJointConfidence {
+            points[name] = Vector2(x: joint.x * config.aspectRatio, y: joint.y)
+        }
+        let header = "joints \(points.count)/\(hand.joints.count)"
+        guard let wrist = points[.wrist], let middleBase = points[.middleMCP] else {
+            return header + ", no wrist or middle knuckle"
+        }
+        let handSize = wrist.distance(to: middleBase)
+        guard handSize > 0 else { return header }
+
+        func fmt(_ value: Double?) -> String {
+            guard let value else { return "?" }
+            return String(format: "%.2f", value)
+        }
+        func reach(_ knuckle: JointName, _ tip: JointName) -> Double? {
+            guard let k = points[knuckle], let t = points[tip], wrist.distance(to: k) > 0 else { return nil }
+            return wrist.distance(to: t) / wrist.distance(to: k)
+        }
+        var thumb: Double?
+        if let tip = points[.thumbTip], let base = points[.indexMCP] {
+            thumb = tip.distance(to: base) / handSize
+        }
+        var pinchGap: Double?
+        if let a = points[.thumbTip], let b = points[.indexTip] {
+            pinchGap = a.distance(to: b) / handSize
+        }
+        return header
+            + "\nT \(fmt(thumb))  I \(fmt(reach(.indexPIP, .indexTip)))  M \(fmt(reach(.middlePIP, .middleTip)))"
+            + "  R \(fmt(reach(.ringPIP, .ringTip)))  L \(fmt(reach(.littlePIP, .littleTip)))"
+            + "\npinch gap \(fmt(pinchGap))"
     }
 
     private func isPinch(_ points: [JointName: Vector2], wrist: Vector2, handSize: Double, wasPinching: Bool) -> Bool {
