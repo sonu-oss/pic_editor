@@ -1,20 +1,48 @@
 import SwiftUI
 
-/// Placeholder main window for Phase 0.
+/// The main window: photo area in the middle, camera picture-in-picture bottom-right,
+/// debug panel top-left.
 struct ContentView: View {
     @Environment(AppModel.self) private var model
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "hand.raised")
-                .font(.system(size: 64))
-                .foregroundStyle(.tint)
-            Text("GestureEdit")
-                .font(.largeTitle.bold())
-            Text(model.statusMessage)
-                .foregroundStyle(.secondary)
+        ZStack(alignment: .bottomTrailing) {
+            mainArea
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            CameraPiPView()
+                .padding(16)
         }
-        .padding(40)
+        .overlay(alignment: .topLeading) {
+            DebugHUDView()
+                .padding(12)
+        }
+        .task {
+            await model.runHandTracking()
+        }
+        .task(id: model.cameraShouldRun) {
+            await model.updateCamera()
+        }
+    }
+
+    @ViewBuilder
+    private var mainArea: some View {
+        switch model.cameraState {
+        case .denied:
+            CameraDeniedView()
+        case .failed(let message):
+            ContentUnavailableView("Camera unavailable", systemImage: "video.slash", description: Text(message))
+        case .off, .running:
+            VStack(spacing: 12) {
+                Image(systemName: "hand.raised")
+                    .font(.system(size: 64))
+                    .foregroundStyle(.tint)
+                Text("GestureEdit")
+                    .font(.largeTitle.bold())
+                Text("Hold a hand up to the camera. Photo editing arrives in a later step.")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(40)
+        }
     }
 }
 
