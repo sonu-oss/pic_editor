@@ -34,9 +34,12 @@ struct GestureConfig: Sendable, Equatable {
     // MARK: Gesture states (GestureStateMachine), times in seconds
 
     var armHoldDuration = 0.8
-    /// Wrist speed for a swipe, in camera widths per second.
-    var swipeVelocity = 1.5
-    var swipeMinimumFrames = 3
+    /// Wrist speed for a swipe, in camera widths per second. (PRD said 1.5; too fast in practice.)
+    var swipeVelocity = 0.8
+    var swipeMinimumFrames = 2
+    /// A fast hand often blurs and stops looking like a palm. It still counts as a palm swipe
+    /// if the palm was seen this recently.
+    var swipePalmGrace = 0.4
     var swipeCooldown = 0.5
     /// A pinch must be held this long before moving the hand changes the value.
     var pinchSettleDuration = 0.15

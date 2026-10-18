@@ -40,6 +40,8 @@ struct GestureStateMachine: Sendable {
     private(set) var dwellProgress = 0.0
     /// 0…1 while thumbs up is held, before export.
     private(set) var exportProgress = 0.0
+    /// Latest sideways wrist speed in camera widths per second (shown in the debug panel).
+    private(set) var wristSpeedX = 0.0
 
     private var lastHandSeen: Double?
     private var palmHoldStart: Double?
@@ -47,6 +49,7 @@ struct GestureStateMachine: Sendable {
     private var swipeDirection = 0
     private var swipeStreak = 0
     private var lastSwipe = -Double.infinity
+    private var lastOpenPalm = -Double.infinity
     private var pinchStart: Double?
     private var lastPinchY: Double?
     private var undoLatched = false
@@ -72,6 +75,7 @@ struct GestureStateMachine: Sendable {
         } else {
             wristMotion.reset()
         }
+        wristSpeedX = wristVelocity.x
 
         // Safety: disarm when the hand has been gone for a while.
         if state != .idle, input.hand == nil, let seen = lastHandSeen, time - seen >= config.autoDisarmDelay {
@@ -127,7 +131,15 @@ struct GestureStateMachine: Sendable {
 
     private mutating func handleArmed(_ input: GestureInput, wristVelocity: Vector2, _ commands: inout [EditCommand]) {
         let time = input.timestamp
-        if input.pose != .openPalm { swipeStreak = 0 }
+        if input.pose == .openPalm { lastOpenPalm = time }
+        // A blurred fast hand often reads as no pose; keep the swipe going if the palm was just seen.
+        let palmSwipe = input.pose == .openPalm
+            || (input.pose == .none && input.hand != nil && time - lastOpenPalm <= config.swipePalmGrace)
+        if palmSwipe {
+            detectSwipe(velocity: wristVelocity.x, at: time, &commands)
+            return
+        }
+        swipeStreak = 0
 
         switch input.pose {
         case .fist:
@@ -164,10 +176,7 @@ struct GestureStateMachine: Sendable {
                 exportProgress = 0
             }
 
-        case .openPalm:
-            detectSwipe(velocity: wristVelocity.x, at: time, &commands)
-
-        case .none:
+        case .openPalm, .none:
             break
         }
     }
