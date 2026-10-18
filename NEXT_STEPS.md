@@ -10,18 +10,20 @@ _Last updated: 18 Oct 2026_
 | 1 | Mirrored camera preview (PiP), permission screen, pauses in background | Tested on the Mac ✅ (30 fps) |
 | 2 | Vision hand tracking, One Euro smoothing, skeleton overlay, FPS panel | Tested on the Mac ✅ |
 | 3 | Pose classifier, 4-of-5 vote, gesture state machine, status pill, arming ring, gesture recorder, tests | Tested on the Mac ✅ (arm, pinch, swipe work) |
-| 4 | Open/drag a photo, Core Image rendering (2048 px proxy, coalesced), pinch edits the photo, undo/redo, presets, export JPEG, ⌘+/⌘− zoom, tests | Written in PR #6, **not yet built or tested** |
+| 4 | Open/drag a photo, Core Image rendering (2048 px proxy, coalesced), pinch edits the photo, undo/redo, presets, export JPEG, ⌘+/⌘− zoom, tests | Tested on the Mac ✅ (pinch release fixed in PR #7) |
 
-## Next, in order
+## Status
 
-1. **Finish Phase 4.** Merge PR #6, pull in Xcode, press ⌘R, then ⌘U.
-   - Fix any build errors first (paste them to Claude).
-   - Check PRD Section 8, Phase 4: open a photo, pinch changes it live, peace sign undoes, thumbs-up exports, presets on the right.
-2. **Two-hand zoom gesture** (sohan asked for it). Both hands pinching: spread apart to zoom in, move together to zoom out.
-   - `EditCommand.zoom(scale:)` and `AppModel.zoomScale` already exist (⌘+/⌘− use them). Add a two-hand check in `GesturePipeline` (it currently tracks one hand) that emits `.zoom` from the change in distance between the two pinch points, with the thresholds in `GestureConfig`.
-3. **Latency logging** (ED-5): log time from hand frame to rendered preview.
-4. **Phase 5: polish** (UI-1, UI-4, UI-6…8: gesture cursor with dwell-click on presets, before/after, onboarding, Settings).
-5. **Phase 6: custom ML gesture classifier** (PRD Section 9). `GestureClassifier` is already a protocol, so `MLClassifier` slots in next to `RuleBasedClassifier`.
+The app does what sohan needs and is considered done (18 Oct 2026). Nothing is required.
+
+## Optional ideas for later
+
+These are from the PRD and were left out on purpose. Pick any of them only if wanted.
+
+- **Two-hand zoom gesture.** Not wanted for now; ⌘+/⌘−/⌘0 zoom from the keyboard. If added: `EditCommand.zoom(scale:)` and `AppModel.zoomScale` exist; add a two-hand check in `GesturePipeline` (it tracks one hand) with thresholds in `GestureConfig`.
+- **Latency logging** (ED-5): log time from hand frame to rendered preview.
+- **Phase 5: polish** (UI-1, UI-4, UI-6…8: gesture cursor with dwell-click on presets, before/after, onboarding, Settings).
+- **Phase 6: custom ML gesture classifier** (PRD Section 9). `GestureClassifier` is already a protocol, so `MLClassifier` slots in next to `RuleBasedClassifier`.
 
 ## How to keep going with Claude
 
@@ -29,9 +31,9 @@ _Last updated: 18 Oct 2026_
 - Prompt for the next phase (from PRD Section 11):
 
   ```text
-  Read PRD.md, CLAUDE.md and NEXT_STEPS.md. Build with xcodebuild and fix all errors and
-  warnings in Phase 4, run the tests, then add the two-hand pinch zoom gesture and
-  gesture-to-render latency logging. Give me the manual test checklist.
+  Read PRD.md, CLAUDE.md and NEXT_STEPS.md. Implement <one idea from the list>.
+  Build with xcodebuild, fix all errors and warnings, run the tests, and give me
+  the manual test checklist.
   ```
 
 - Work one phase at a time, test with your hands, tick the boxes in PRD Section 8 and commit.
