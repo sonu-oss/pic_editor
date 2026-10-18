@@ -20,6 +20,13 @@ struct ContentView: View {
             DebugHUDView()
                 .padding(12)
         }
+        .overlay(alignment: .trailing) {
+            if model.hasPhoto {
+                PresetStripView()
+                    .padding(.trailing, 16)
+                    .padding(.bottom, 120)
+            }
+        }
         .task {
             await model.runHandTracking()
         }
@@ -36,16 +43,7 @@ struct ContentView: View {
         case .failed(let message):
             ContentUnavailableView("Camera unavailable", systemImage: "video.slash", description: Text(message))
         case .off, .running:
-            VStack(spacing: 12) {
-                Image(systemName: "hand.raised")
-                    .font(.system(size: 64))
-                    .foregroundStyle(.tint)
-                Text("GestureEdit")
-                    .font(.largeTitle.bold())
-                Text("Hold an open palm still to arm, then try pinch, point, peace, thumbs up and fist.")
-                    .foregroundStyle(.secondary)
-            }
-            .padding(40)
+            PhotoCanvasView()
         }
     }
 }
