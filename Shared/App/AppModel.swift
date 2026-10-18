@@ -31,6 +31,7 @@ final class AppModel {
     var gestureState: GestureState = .idle
     var pose: HandPose = .none
     var rawPose: HandPose = .none
+    var poseDiagnostics = ""
     var armProgress = 0.0
     var trackedHand: Hand?
     var lastAction = "None yet"
@@ -59,6 +60,7 @@ final class AppModel {
     @ObservationIgnored private var smoother = HandSmoother()
     @ObservationIgnored private var fpsCounter = FPSCounter()
     @ObservationIgnored private var gestures = GesturePipeline()
+    @ObservationIgnored private let diagnosticsClassifier = RuleBasedClassifier()
     @ObservationIgnored private var valueBeforeAdjust: Double?
     @ObservationIgnored private var recordedFrames: [HandFrame] = []
 
@@ -104,6 +106,7 @@ final class AppModel {
         gestureState = gestures.stateMachine.state
         pose = gestures.stablePose
         rawPose = gestures.rawPose
+        poseDiagnostics = gestures.trackedHand.map { diagnosticsClassifier.diagnostics(for: $0) } ?? "no hand"
         armProgress = gestures.stateMachine.armProgress
         trackedHand = gestures.trackedHand
         for command in commands {
