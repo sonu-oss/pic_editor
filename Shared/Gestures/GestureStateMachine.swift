@@ -19,6 +19,9 @@ struct GestureInput: Sendable {
     var pose: HandPose
     /// The hand being tracked, or nil when no hand is in view.
     var hand: Hand?
+    /// This frame's pose before voting. Used to notice a pinch letting go right away,
+    /// without waiting for the vote. nil means "same as `pose`".
+    var rawPose: HandPose? = nil
 }
 
 /// Turns poses over time into editing commands (GE-4, PRD Section 4).
@@ -52,6 +55,11 @@ struct GestureStateMachine: Sendable {
     private var lastOpenPalm = -Double.infinity
     private var pinchStart: Double?
     private var lastPinchY: Double?
+    /// Recent adjustments (time, delta), so the last moment before letting go can be undone.
+    private var recentDeltas: [(time: Double, delta: Double)] = []
+    private var releaseFrames = 0
+    /// After letting go, the voted pose can still say pinch for a few frames; don't start again.
+    private var pinchLatched = false
     private var undoLatched = false
     private var fistLatched = false
     private var exportStart: Double?
@@ -99,6 +107,7 @@ struct GestureStateMachine: Sendable {
         // A gesture triggers once; the hand must leave the pose before it can trigger again.
         if input.pose != .peace { undoLatched = false }
         if input.pose != .fist { fistLatched = false }
+        if input.pose != .pinch { pinchLatched = false }
         if input.pose != .thumbsUp {
             exportStart = nil
             exportLatched = false
@@ -148,11 +157,13 @@ struct GestureStateMachine: Sendable {
             enterIdle()
 
         case .pinch:
-            guard input.hand != nil else { return }
+            guard !pinchLatched, input.hand != nil else { return }
             commands.append(.beginAdjust)
             state = .adjusting
             pinchStart = time
             lastPinchY = nil
+            recentDeltas = []
+            releaseFrames = 0
 
         case .point:
             guard input.hand != nil else { return }
@@ -188,25 +199,53 @@ struct GestureStateMachine: Sendable {
             state = .armed
             return
         }
-        switch input.pose {
-        case .pinch:
-            guard let start = pinchStart, input.timestamp - start >= config.pinchSettleDuration,
-                  let thumbTip = hand.joints[.thumbTip], let indexTip = hand.joints[.indexTip]
-            else { return }
-            let y = Vector2.midpoint(thumbTip.position, indexTip.position).y
-            if let lastY = lastPinchY, y != lastY {
-                // Up on screen is a smaller y, and should raise the value.
-                commands.append(.adjust(delta: -(y - lastY)))
-            }
-            lastPinchY = y
-        case .fist:
+        let raw = input.rawPose ?? input.pose
+        if input.pose == .fist {
             commands.append(.cancelAdjust)
             state = .armed
             fistLatched = true
-        default:
-            commands.append(.endAdjust)
-            state = .armed
+            return
         }
+        // Letting go is read from the unvoted pose, so the value stops changing at once
+        // instead of following the hand while the vote catches up.
+        if raw != .pinch, raw != .fist {
+            releaseFrames += 1
+            lastPinchY = nil
+            if releaseFrames >= config.pinchReleaseFrames || input.pose != .pinch {
+                finishAdjust(at: input.timestamp, &commands)
+            }
+            return
+        }
+        releaseFrames = 0
+        guard raw == .pinch, let start = pinchStart, input.timestamp - start >= config.pinchSettleDuration,
+              let thumbTip = hand.joints[.thumbTip], let indexTip = hand.joints[.indexTip]
+        else { return }
+        let y = Vector2.midpoint(thumbTip.position, indexTip.position).y
+        if let lastY = lastPinchY, y != lastY {
+            // Up on screen is a smaller y, and should raise the value.
+            let delta = -(y - lastY)
+            commands.append(.adjust(delta: delta))
+            recentDeltas.append((input.timestamp, delta))
+            recentDeltas.removeAll { input.timestamp - $0.time > config.pinchReleaseRollback }
+        }
+        lastPinchY = y
+    }
+
+    /// Ends the pinch. Fingers drift while they open, so the last `pinchReleaseRollback`
+    /// seconds of change are taken back first.
+    private mutating func finishAdjust(at time: Double, _ commands: inout [EditCommand]) {
+        let drift = recentDeltas
+            .filter { time - $0.time <= config.pinchReleaseRollback + config.pinchReleaseFrames.asSeconds }
+            .reduce(0) { $0 + $1.delta }
+        if drift != 0 {
+            commands.append(.adjust(delta: -drift))
+        }
+        commands.append(.endAdjust)
+        state = .armed
+        pinchLatched = true
+        recentDeltas = []
+        releaseFrames = 0
+        lastPinchY = nil
     }
 
     private mutating func handlePointing(_ input: GestureInput, _ commands: inout [EditCommand]) {
@@ -272,7 +311,14 @@ struct GestureStateMachine: Sendable {
         palmHoldStart = nil
         pinchStart = nil
         lastPinchY = nil
+        recentDeltas = []
+        releaseFrames = 0
         swipeStreak = 0
         resetDwell()
     }
+}
+
+private extension Int {
+    /// A frame count as seconds at the camera's 30 fps.
+    var asSeconds: Double { Double(self) / 30 }
 }
