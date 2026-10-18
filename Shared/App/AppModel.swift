@@ -106,7 +106,8 @@ final class AppModel {
         gestureState = gestures.stateMachine.state
         pose = gestures.stablePose
         rawPose = gestures.rawPose
-        poseDiagnostics = gestures.trackedHand.map { diagnosticsClassifier.diagnostics(for: $0) } ?? "no hand"
+        poseDiagnostics = (gestures.trackedHand.map { diagnosticsClassifier.diagnostics(for: $0) } ?? "no hand")
+            + String(format: "\nswipe speed %+.2f (needs ±%.2f)", gestures.stateMachine.wristSpeedX, gestures.config.swipeVelocity)
         armProgress = gestures.stateMachine.armProgress
         trackedHand = gestures.trackedHand
         for command in commands {

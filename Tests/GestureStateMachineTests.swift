@@ -243,4 +243,21 @@ struct GestureStateMachineTests {
         driver.run(.none, for: 0.1)
         #expect(driver.machine.state == .armed)
     }
+
+    @Test func blurredFastPalmStillSwipes() {
+        var driver = Driver()
+        driver.arm()
+        driver.run(.openPalm, for: 0.6)
+        // Mid-swipe the hand blurs and the pose drops to "none".
+        let swipe = driver.run(.none, for: 0.2, to: Vector2(x: 0.9, y: 0.5))
+        #expect(swipe == [.nextTool])
+    }
+
+    @Test func movingWithoutAPalmIsNotASwipe() {
+        var driver = Driver()
+        driver.arm()
+        driver.run(.none, for: 0.6)
+        let moved = driver.run(.none, for: 0.2, to: Vector2(x: 0.9, y: 0.5))
+        #expect(moved.isEmpty)
+    }
 }
